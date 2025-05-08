@@ -6,8 +6,22 @@
     <title>Bulk Code 128 Barcode Generator</title>
     <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <style>
-        /* Previous CSS remains the same, add these new styles */
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
         .tab-container {
             display: flex;
             margin-bottom: 20px;
@@ -29,39 +43,72 @@
         .tab-content.active {
             display: block;
         }
-        #bulk-results {
+        .input-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], input[type="file"], select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+            margin-bottom: 10px;
+        }
+        button {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 10px;
+        }
+        button:hover {
+            background-color: #45a049;
+        }
+        #barcode-container, #bulk-results, #google-results {
+            margin-top: 20px;
+            text-align: center;
+            padding: 20px;
+            border: 1px dashed #ddd;
+            min-height: 100px;
+        }
+        #bulk-results, #google-results {
             display: flex;
             flex-wrap: wrap;
             gap: 20px;
-            margin-top: 20px;
         }
         .barcode-item {
             border: 1px solid #ddd;
             padding: 10px;
             text-align: center;
         }
-        #google-sheet-link {
-            width: 100%;
-            padding: 8px;
-            margin-bottom: 10px;
-        }
-        #sheet-name, #range {
-            width: 48%;
-            padding: 8px;
-            margin-bottom: 10px;
-        }
         .progress-container {
             width: 100%;
             background-color: #f1f1f1;
             margin: 20px 0;
         }
-        #progress-bar {
+        #progress-bar, #google-progress-bar {
             width: 0%;
             height: 30px;
             background-color: #4CAF50;
             text-align: center;
             line-height: 30px;
             color: white;
+        }
+        .options {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        .option-group {
+            flex: 1;
         }
     </style>
 </head>
@@ -77,10 +124,9 @@
         
         <!-- Single Barcode Tab -->
         <div id="single-tab" class="tab-content active">
-            <!-- Your existing single barcode form goes here -->
             <div class="input-group">
                 <label for="barcode-text">Enter text to encode:</label>
-                <input type="text" id="barcode-text" placeholder="Enter text for barcode">
+                <input type="text" id="barcode-text" placeholder="Enter text for barcode" value="EXAMPLE">
             </div>
             
             <div class="options">
@@ -177,11 +223,7 @@
         </div>
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.5/FileSaver.min.js"></script>
     <script>
-        // Previous JavaScript remains the same until the end
-        
         // Tab functionality
         function openTab(tabId) {
             // Hide all tab contents
@@ -197,6 +239,27 @@
                 tab.classList.remove('active');
             });
             event.currentTarget.classList.add('active');
+        }
+        
+        // Single barcode generation
+        function generateBarcode() {
+            const text = document.getElementById('barcode-text').value || 'EXAMPLE';
+            
+            try {
+                JsBarcode('#barcode', text, {
+                    format: document.getElementById('barcode-format').value,
+                    width: parseInt(document.getElementById('barcode-width').value),
+                    height: parseInt(document.getElementById('barcode-height').value),
+                    displayValue: true,
+                    fontSize: 16,
+                    margin: 10,
+                    lineColor: '#000000',
+                    background: '#ffffff'
+                });
+            } catch (e) {
+                console.error("Barcode generation error:", e);
+                alert("Error generating barcode. Please check your input.");
+            }
         }
         
         // Bulk Excel Generation
@@ -458,9 +521,39 @@
             saveAs(content, 'barcodes.zip');
         }
         
-        // Initialize with single barcode tab
+        // Download single barcode
+        document.getElementById('download-btn').addEventListener('click', function() {
+            const svg = document.getElementById('barcode');
+            const serializer = new XMLSerializer();
+            const svgStr = serializer.serializeToString(svg);
+            
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            const img = new Image();
+            
+            img.onload = function() {
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                
+                const png = canvas.toDataURL('image/png');
+                const downloadLink = document.createElement('a');
+                downloadLink.href = png;
+                downloadLink.download = 'barcode.png';
+                document.body.appendChild(downloadLink);
+                downloadLink.click();
+                document.body.removeChild(downloadLink);
+            };
+            
+            img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgStr)));
+        });
+        
+        // Initialize
         document.addEventListener('DOMContentLoaded', function() {
-            // Your existing initialization code
+            // Set up event listeners
+            document.getElementById('generate-btn').addEventListener('click', generateBarcode);
+            
+            // Generate initial barcode
             generateBarcode();
         });
     </script>
